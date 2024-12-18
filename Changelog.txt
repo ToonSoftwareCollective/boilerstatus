@@ -1,3 +1,6 @@
+1.0.8
+added a tile to show the number of minutes the boiler has been burning today (only for on/off controlled boilers)
+
 1.0.7
 - dimmableColors update
 

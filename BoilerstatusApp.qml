@@ -17,6 +17,7 @@ App {
     
    
     property url tileUrl : "BoilerstatusTile.qml"
+    property url tile2Url : "BoilerstatusTileMinutes.qml"
     property url thumbnailIcon: "qrc:/tsc/boilerstatus.png"
 
     /* boiler status parameters */
@@ -28,9 +29,9 @@ App {
     property real boilerOutTemp
     property real boilerInTemp
     property real boilerModulationLevel : 1
-    property string sampleTime
+    property int boilerBurnerMinutesNow
+    property int boilerBurnerMinutesDayStart
     property bool showPressureInDimState : true
-    property string fullDateStr
  
     property string ipToon : "127.0.0.1"  //can put any external Toon ip address as well for testing purposes
    
@@ -42,10 +43,19 @@ App {
 				   thumbWeight: 30, 
 				   baseTileWeight: 10, 
 				   thumbIconVAlignment: "center" } );
+	registry.registerWidget( "tile", tile2Url, this, null, 
+				 { thumbLabel: qsTr("Boiler Minutes"), 
+				   thumbIcon: thumbnailIcon, 
+				   thumbCategory: "general", 
+				   thumbWeight: 30, 
+				   baseTileWeight: 10, 
+				   thumbIconVAlignment: "center" } );
 	}
 
 	Component.onCompleted: {
+
  		datetimeTimer.start();
+		boilerMinutesTimer.start();
 		readDefaults();
 	}
 
@@ -69,7 +79,7 @@ App {
 		doc2.send(showPressureInDimState);
 	}
 
-    function getBoilerParameter(loggerName, variableName) {
+    function getBoilerParameter(loggerName, variableName, rradatabase, fullDateStr) {
 	
 	var xmlhttp = new XMLHttpRequest();
 	var infoJson = {};
@@ -82,7 +92,7 @@ App {
 		   		infoJson = JSON.parse( xmlhttp.responseText );
 				for (var props in infoJson ) {
 					resultValue = parseFloat(infoJson [props]);  //only interested in the last one == most recent
-					sampleTime = props;
+//					sampleTime = props;
 				}
 				switch(variableName) {
 					case "boilerSetpoint":
@@ -103,14 +113,23 @@ App {
 					case "boilerInTemp":
 						boilerInTemp = resultValue;
 						break;
+					case "boilerBurnerMinutesNow":
+						boilerBurnerMinutesNow = resultValue;
+//						console.log("*******BOILER reading:" + boilerBurnerMinutesNow);
+						break;
+					case "boilerBurnerMinutesDayStart":
+						boilerBurnerMinutesDayStart = resultValue;
+//						console.log("*******BOILER reading  dayStart:" + boilerBurnerMinutesDayStart);
+						break;
 					default:
 						break;
 				}
 			}
 	    	}
 	}
-	xmlhttp.open( "GET", "http://" + ipToon + "/hcb_rrd?action=getRrdData&loggerName=" + loggerName + "&rra=30days&readableTime=1&nullForNaN=1&from=" + fullDateStr, true );
+	xmlhttp.open( "GET", "http://" + ipToon + "/hcb_rrd?action=getRrdData&loggerName=" + loggerName + "&" + rradatabase + "&readableTime=1&nullForNaN=1&from=" + fullDateStr, true );
 	xmlhttp.send();
+//	console.log("********** BOILER request:" + "http://" + ipToon + "/hcb_rrd?action=getRrdData&loggerName=" + loggerName + "&" + rradatabase + "&readableTime=1&nullForNaN=1&from=" + fullDateStr);
     }
 
     function getThermostatInfo() {
@@ -151,19 +170,37 @@ App {
     Timer {
 	id: datetimeTimer
 	interval: 60000  // update every minute 
-	triggeredOnStart: false
+	triggeredOnStart: true
 	running: false
 	repeat: true
 	onTriggered: {
-		var now = new Date().getTime() - 3000;
-		fullDateStr = i18n.dateTime(now, i18n.cent_yes) + " " + i18n.dateTime(now, i18n.time_yes);
-		getBoilerParameter("thermstat_realTemps", "roomTemp");
-		getBoilerParameter("thermstat_boilerRetTemp", "boilerInTemp");
-		getBoilerParameter("thermstat_boilerTemp", "boilerOutTemp");
-		getBoilerParameter("thermstat_boilerSetpoint", "boilerSetpoint");
-		getBoilerParameter("thermstat_boilerChPressure", "boilerPressure");
-		getBoilerParameter("thermstat_setpoint", "roomTempSetpoint");
+		var now = new Date().getTime() - 300000;  // 5 min interval
+		var fullDateStr = i18n.dateTime(now, i18n.cent_yes) + " " + i18n.dateTime(now, i18n.time_yes);
+		getBoilerParameter("thermstat_realTemps", "roomTemp", "rra=30days", fullDateStr);
+		getBoilerParameter("thermstat_boilerRetTemp", "boilerInTemp", "rra=30days", fullDateStr);
+		getBoilerParameter("thermstat_boilerTemp", "boilerOutTemp", "rra=30days", fullDateStr);
+		getBoilerParameter("thermstat_boilerSetpoint", "boilerSetpoint", "rra=30days", fullDateStr);
+		getBoilerParameter("thermstat_boilerChPressure", "boilerPressure", "rra=30days", fullDateStr);
+		getBoilerParameter("thermstat_setpoint", "roomTempSetpoint", "rra=30days", fullDateStr);
 		getThermostatInfo();
+	    }
+	}
+
+    Timer {
+	id: boilerMinutesTimer
+	interval: 300000  // update every 5 minutes 
+	triggeredOnStart: true
+	running: false
+	repeat: true
+	onTriggered: {
+		var now = new Date().getTime() - 3600000;  // 1 hour interval updates by Toon
+		var now2 = new Date().getTime();
+
+		var fullDateStr1 = i18n.dateTime(now, i18n.cent_yes) + " " + i18n.dateTime(now, i18n.time_yes) + "&to=" + i18n.dateTime(now, i18n.cent_yes) + " " + i18n.dateTime(now2, i18n.time_yes);
+		getBoilerParameter("boiler_burner_minutes", "boilerBurnerMinutesNow", "rra=5yrhours", fullDateStr1);
+
+		var fullDateStr3 = i18n.dateTime(now-86400000, i18n.cent_yes) + " 23:59&to=" + i18n.dateTime(now, i18n.cent_yes) + " 00:05";  // start of day
+		getBoilerParameter("boiler_burner_minutes", "boilerBurnerMinutesDayStart", "rra=5yrhours", fullDateStr3);
 	    }
 	}
 }
