@@ -31,6 +31,7 @@ App {
     property real boilerModulationLevel : 1
     property int boilerBurnerMinutesNow
     property int boilerBurnerMinutesDayStart
+    property string sampleTime
     property bool showPressureInDimState : true
  
     property string ipToon : "127.0.0.1"  //can put any external Toon ip address as well for testing purposes
@@ -92,7 +93,7 @@ App {
 		   		infoJson = JSON.parse( xmlhttp.responseText );
 				for (var props in infoJson ) {
 					resultValue = parseFloat(infoJson [props]);  //only interested in the last one == most recent
-//					sampleTime = props;
+					if (rradatabase === "rra=30days") sampleTime = props;  // burner minutes (5yrhours) must not overwrite it
 				}
 				switch(variableName) {
 					case "boilerSetpoint":
