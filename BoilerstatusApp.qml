@@ -32,6 +32,7 @@ App {
     property int boilerBurnerMinutesNow
     property int boilerBurnerMinutesDayStart
     property bool showPressureInDimState : true
+    property string sampleTime
  
     property string ipToon : "127.0.0.1"  //can put any external Toon ip address as well for testing purposes
    
@@ -92,7 +93,6 @@ App {
 		   		infoJson = JSON.parse( xmlhttp.responseText );
 				for (var props in infoJson ) {
 					resultValue = parseFloat(infoJson [props]);  //only interested in the last one == most recent
-//					sampleTime = props;
 				}
 				switch(variableName) {
 					case "boilerSetpoint":
@@ -176,6 +176,7 @@ App {
 	onTriggered: {
 		var now = new Date().getTime() - 300000;  // 5 min interval
 		var fullDateStr = i18n.dateTime(now, i18n.cent_yes) + " " + i18n.dateTime(now, i18n.time_yes);
+		sampleTime = fullDateStr;
 		getBoilerParameter("thermstat_realTemps", "roomTemp", "rra=30days", fullDateStr);
 		getBoilerParameter("thermstat_boilerRetTemp", "boilerInTemp", "rra=30days", fullDateStr);
 		getBoilerParameter("thermstat_boilerTemp", "boilerOutTemp", "rra=30days", fullDateStr);
